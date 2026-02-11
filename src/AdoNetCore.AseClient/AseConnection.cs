@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Net.Security;
 using AdoNetCore.AseClient.Interface;
 using AdoNetCore.AseClient.Internal;
@@ -26,39 +27,40 @@ namespace AdoNetCore.AseClient
         private AseTransaction _transaction;
         private readonly IEventNotifier _eventNotifier;
         private bool? _namedParameters;
+        private bool isHealing;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AseConnection" /> class.
         /// </summary>
         /// <remarks>
-        /// <para>When a new instance of <see cref="AseConnection" /> is created, the read/write properties are set 
-        /// to the following initial values unless they are specifically set using their associated keywords in the 
+        /// <para>When a new instance of <see cref="AseConnection" /> is created, the read/write properties are set
+        /// to the following initial values unless they are specifically set using their associated keywords in the
         /// <see cref="ConnectionString" /> property.</para>
         /// <para>
-        ///     <list type="table">  
-        ///         <listheader>  
-        ///             <term>Properties</term> 
-        ///             <term>Initial value</term> 
-        ///         </listheader>  
-        ///         <item>  
+        ///     <list type="table">
+        ///         <listheader>
+        ///             <term>Properties</term>
+        ///             <term>Initial value</term>
+        ///         </listheader>
+        ///         <item>
         ///             <description><see cref="ConnectionString" /></description>
-        ///         </item>  
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description>empty string ("")</description>
-        ///         </item>    
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description><see cref="ConnectionTimeout" /></description>
-        ///         </item>  
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description>30</description>
         ///         </item>
-        ///         <item>  
+        ///         <item>
         ///             <description><see cref="Database" /></description>
-        ///         </item>  
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description>empty string ("")</description>
         ///         </item>
-        ///     </list>  
+        ///     </list>
         /// </para>
         /// <para>
         /// </para>
@@ -73,34 +75,34 @@ namespace AdoNetCore.AseClient
         /// </summary>
         /// <param name="connectionString">The connection used to open the ASE Server database.</param>
         /// <remarks>
-        /// <para>When a new instance of <see cref="AseConnection" /> is created, the read/write properties are set 
-        /// to the following initial values unless they are specifically set using their associated keywords in the 
+        /// <para>When a new instance of <see cref="AseConnection" /> is created, the read/write properties are set
+        /// to the following initial values unless they are specifically set using their associated keywords in the
         /// <see cref="ConnectionString" /> property.</para>
         /// <para>
-        ///     <list type="table">  
-        ///         <listheader>  
-        ///             <term>Properties</term> 
-        ///             <term>Initial value</term> 
-        ///         </listheader>  
-        ///         <item>  
+        ///     <list type="table">
+        ///         <listheader>
+        ///             <term>Properties</term>
+        ///             <term>Initial value</term>
+        ///         </listheader>
+        ///         <item>
         ///             <description><see cref="ConnectionString" /></description>
-        ///         </item>  
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description>empty string ("")</description>
-        ///         </item>    
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description><see cref="ConnectionTimeout" /></description>
-        ///         </item>  
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description>30</description>
         ///         </item>
-        ///         <item>  
+        ///         <item>
         ///             <description><see cref="Database" /></description>
-        ///         </item>  
-        ///         <item>  
+        ///         </item>
+        ///         <item>
         ///             <description>empty string ("")</description>
         ///         </item>
-        ///     </list>  
+        ///     </list>
         /// </para>
         /// <para>
         /// </para>
@@ -117,6 +119,40 @@ namespace AdoNetCore.AseClient
             _connectionPoolManager = connectionPoolManager;
             _isDisposed = false;
             _eventNotifier = new EventNotifier(this);
+
+            InitializeSelfHealing();
+        }
+
+        private void InitializeSelfHealing()
+        {
+            if (_eventNotifier != null)
+                _eventNotifier.IsDoomedChanged += OnIsDoomedChanged;
+        }
+
+        private void OnIsDoomedChanged(object sender, EventArgs e)
+        {
+            if(AllowSelfHealing)
+                HealConnection();
+        }
+
+        private void HealConnection()
+        {
+            if (isHealing || !(_internal?.IsDoomed ?? false))
+                return;
+
+            isHealing = true;
+
+            try
+            {
+                Debug.WriteLine($"Healing connection [{GetHashCode()}]...");
+                Close();
+                Open();
+                Debug.WriteLine($"Connection healed [{GetHashCode()}].");
+            }
+            finally
+            {
+                isHealing = false;
+            }
         }
 
         /// <summary>
@@ -151,20 +187,20 @@ namespace AdoNetCore.AseClient
             }
         }
 
-        /// <summary>		
-        /// Starts a database transaction.		
-        /// </summary>		
-        /// <param name="isolationLevel">The isolation level under which the transaction should run.</param>		
-        /// <returns>An object representing the new transaction.</returns>		
-        /// <remarks>		
-        /// <para>This command maps to the SQL Server implementation of BEGIN TRANSACTION.</para>		
-        /// <para>You must explicitly commit or roll back the transaction using the <see cref="AseTransaction.Commit" /> 		
-        /// or <see cref="AseTransaction.Rollback" /> method. To make sure that the .NET Framework Data Provider for ASE 		
-        /// transaction management model performs correctly, avoid using other transaction management models, such as the 		
-        /// one provided by ASE.</para>		
-        /// <para>If you do not specify an isolation level, the default isolation level is used. To specify an isolation 		
-        /// level with the <see cref="BeginTransaction" /> method, use the overload that takes the iso parameter 		
-        /// (<see cref="BeginTransaction(IsolationLevel)" />).</para>		
+        /// <summary>
+        /// Starts a database transaction.
+        /// </summary>
+        /// <param name="isolationLevel">The isolation level under which the transaction should run.</param>
+        /// <returns>An object representing the new transaction.</returns>
+        /// <remarks>
+        /// <para>This command maps to the SQL Server implementation of BEGIN TRANSACTION.</para>
+        /// <para>You must explicitly commit or roll back the transaction using the <see cref="AseTransaction.Commit" />
+        /// or <see cref="AseTransaction.Rollback" /> method. To make sure that the .NET Framework Data Provider for ASE
+        /// transaction management model performs correctly, avoid using other transaction management models, such as the
+        /// one provided by ASE.</para>
+        /// <para>If you do not specify an isolation level, the default isolation level is used. To specify an isolation
+        /// level with the <see cref="BeginTransaction" /> method, use the overload that takes the iso parameter
+        /// (<see cref="BeginTransaction(IsolationLevel)" />).</para>
         /// </remarks>
         public new AseTransaction BeginTransaction(IsolationLevel isolationLevel = IsolationLevel.Unspecified)
         {
@@ -189,7 +225,7 @@ namespace AdoNetCore.AseClient
         /// </summary>
         /// <param name="databaseName">The name of the database to use instead of the current database.</param>
         /// <remarks>
-        /// The value supplied in the <i>database</i> parameter must be a valid database name. The <i>database</i> parameter 
+        /// The value supplied in the <i>database</i> parameter must be a valid database name. The <i>database</i> parameter
         /// cannot contain a null value, an empty string, or a string with only blank characters.
         /// </remarks>
         public override void ChangeDatabase(string databaseName)
@@ -249,7 +285,7 @@ namespace AdoNetCore.AseClient
         /// Opens a database connection with the property settings specified by the <see cref="ConnectionString" />.
         /// </summary>
         /// <remarks>
-        /// The <see cref="AseConnection" /> draws an open connection from the connection pool if one is available. 
+        /// The <see cref="AseConnection" /> draws an open connection from the connection pool if one is available.
         /// Otherwise, it establishes a new connection to an instance of ASE.
         /// </remarks>
         public override void Open()
@@ -316,8 +352,8 @@ namespace AdoNetCore.AseClient
         /// Gets the time to wait while trying to establish a connection before terminating the attempt and generating an error.
         /// </summary>
         /// <remarks>
-        /// You can set the amount of time a connection waits to time out by using the <b>LoginTimeOut</b> keyword in the connection 
-        /// string. A value of 0 indicates no limit, and should be avoided in a <see cref="ConnectionString" /> because an attempt to 
+        /// You can set the amount of time a connection waits to time out by using the <b>LoginTimeOut</b> keyword in the connection
+        /// string. A value of 0 indicates no limit, and should be avoided in a <see cref="ConnectionString" /> because an attempt to
         /// connect waits indefinitely.
         /// </remarks>
         public override int ConnectionTimeout => InternalConnectionTimeout;
@@ -327,8 +363,8 @@ namespace AdoNetCore.AseClient
         /// Gets the name of the current database or the database to be used after a connection is opened.
         /// </summary>
         /// <remarks>
-        /// The Database property updates dynamically. If you change the current database using a Transact-SQL 
-        /// statement or the <see cref="ChangeDatabase(string)" /> method, an informational message is sent and 
+        /// The Database property updates dynamically. If you change the current database using a Transact-SQL
+        /// statement or the <see cref="ChangeDatabase(string)" /> method, an informational message is sent and
         /// the property is updated automatically.
         /// </remarks>
         public override string Database => _internal?.Database;
@@ -351,11 +387,11 @@ namespace AdoNetCore.AseClient
 #endif
 
         /// <summary>
-        /// Indicates the state of the <see cref="AseConnection" /> during the most recent network operation 
+        /// Indicates the state of the <see cref="AseConnection" /> during the most recent network operation
         /// performed on the connection.
         /// </summary>
         /// <remarks>
-        /// Returns a <see cref="System.Data.ConnectionState" /> enumeration indicating the state of the 
+        /// Returns a <see cref="System.Data.ConnectionState" /> enumeration indicating the state of the
         /// <see cref="AseConnection" />. Closing and reopening the connection will refresh the value of State.
         /// </remarks>
         public override ConnectionState State => InternalState;
@@ -379,6 +415,15 @@ namespace AdoNetCore.AseClient
             }
         }
 
+        /// <summary>
+        /// Sets, if the connection should heal itself if the Connection gets to the IsDoomed-state (default: false).
+        /// </summary>
+        public bool AllowSelfHealing
+        {
+            get;
+            set;
+        }
+
         internal IInternalConnection InternalConnection
         {
             get
@@ -395,7 +440,7 @@ namespace AdoNetCore.AseClient
         /// Occurs when Adaptive Server ADO.NET Data Provider sends a warning or an informational message.
         /// </summary>
         /// <remarks>
-        /// The event handler receives an argument of type AseInfoMessageEventArgs containing data related to this event. 
+        /// The event handler receives an argument of type AseInfoMessageEventArgs containing data related to this event.
         /// The Errors and Message properties provide information specific to this event.
         /// </remarks>
         public event AseInfoMessageEventHandler InfoMessage
@@ -422,7 +467,7 @@ namespace AdoNetCore.AseClient
         /// Occurs when the state of the connection changes.
         /// </summary>
         /// <remarks>
-        /// The event handler receives an argument of StateChangeEventArgs with data related to this event. Two StateChangeEventArgs properties 
+        /// The event handler receives an argument of StateChangeEventArgs with data related to this event. Two StateChangeEventArgs properties
         /// provide information specific to this event: CurrentState and OriginalState.
         /// </remarks>
         public override event StateChangeEventHandler StateChange
@@ -449,16 +494,16 @@ namespace AdoNetCore.AseClient
         /// Traces database activity within an application for debugging.
         /// </summary>
         /// <remarks>
-        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an 
-        /// instance of a connection. This allows different connections to be logged to different files. It can ignore 
-        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more 
-        /// than one event handler for a single connection object. This enables you to log the event to both a window 
+        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an
+        /// instance of a connection. This allows different connections to be logged to different files. It can ignore
+        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more
+        /// than one event handler for a single connection object. This enables you to log the event to both a window
         /// and a file at the same time.</para>
-        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities. 
-        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed. 
-        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are 
-        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the 
-        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores 
+        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities.
+        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed.
+        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are
+        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the
+        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores
         /// the TraceEnter and TraceExit events.</para>
         /// </remarks>
         public event TraceEnterEventHandler TraceEnter
@@ -485,16 +530,16 @@ namespace AdoNetCore.AseClient
         /// Traces database activity within an application for debugging.
         /// </summary>
         /// <remarks>
-        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an 
-        /// instance of a connection. This allows different connections to be logged to different files. It can ignore 
-        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more 
-        /// than one event handler for a single connection object. This enables you to log the event to both a window 
+        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an
+        /// instance of a connection. This allows different connections to be logged to different files. It can ignore
+        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more
+        /// than one event handler for a single connection object. This enables you to log the event to both a window
         /// and a file at the same time.</para>
-        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities. 
-        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed. 
-        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are 
-        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the 
-        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores 
+        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities.
+        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed.
+        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are
+        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the
+        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores
         /// the TraceEnter and TraceExit events.</para>
         /// </remarks>
         public event TraceExitEventHandler TraceExit
@@ -644,16 +689,16 @@ namespace AdoNetCore.AseClient
     /// Traces database activity within an application for debugging.
     /// </summary>
     /// <remarks>
-    /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an 
-    /// instance of a connection. This allows different connections to be logged to different files. It can ignore 
-    /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more 
-    /// than one event handler for a single connection object. This enables you to log the event to both a window 
+    /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an
+    /// instance of a connection. This allows different connections to be logged to different files. It can ignore
+    /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more
+    /// than one event handler for a single connection object. This enables you to log the event to both a window
     /// and a file at the same time.</para>
-    /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities. 
-    /// It is disabled by default to allow for better performance during normal execution where tracing is not needed. 
-    /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are 
-    /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the 
-    /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores 
+    /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities.
+    /// It is disabled by default to allow for better performance during normal execution where tracing is not needed.
+    /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are
+    /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the
+    /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores
     /// the TraceEnter and TraceExit events.</para>
     /// </remarks>
     public delegate void TraceEnterEventHandler(AseConnection connection, object source, string method, object[] parameters);
@@ -662,16 +707,16 @@ namespace AdoNetCore.AseClient
     /// Traces database activity within an application for debugging.
     /// </summary>
     /// <remarks>
-    /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an 
-    /// instance of a connection. This allows different connections to be logged to different files. It can ignore 
-    /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more 
-    /// than one event handler for a single connection object. This enables you to log the event to both a window 
+    /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an
+    /// instance of a connection. This allows different connections to be logged to different files. It can ignore
+    /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more
+    /// than one event handler for a single connection object. This enables you to log the event to both a window
     /// and a file at the same time.</para>
-    /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities. 
-    /// It is disabled by default to allow for better performance during normal execution where tracing is not needed. 
-    /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are 
-    /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the 
-    /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores 
+    /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities.
+    /// It is disabled by default to allow for better performance during normal execution where tracing is not needed.
+    /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are
+    /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the
+    /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores
     /// the TraceEnter and TraceExit events.</para>
     /// </remarks>
     public delegate void TraceExitEventHandler(AseConnection connection, object source, string method, object returnValue);

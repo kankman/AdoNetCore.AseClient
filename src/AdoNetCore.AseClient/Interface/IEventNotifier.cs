@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 
 namespace AdoNetCore.AseClient.Interface
@@ -12,6 +13,11 @@ namespace AdoNetCore.AseClient.Interface
         void NotifyStateChange(ConnectionState originalState, ConnectionState currentState);
     }
 
+    internal interface IIsDoomedChangeEventNotifier
+    {
+        void NotifyIsDoomedChanged();
+    }
+
     internal interface ITraceEnterEventNotifier
     {
         void NotifyTraceEnter(object source, string method, params object[] parameters);
@@ -21,12 +27,13 @@ namespace AdoNetCore.AseClient.Interface
         void NotifyTraceExit(object source, string method, object returnValue);
     }
 
-    internal interface IEventNotifier : IInfoMessageEventNotifier, IStateChangeEventNotifier, ITraceEnterEventNotifier, ITraceExitEventNotifier
+    internal interface IEventNotifier : IInfoMessageEventNotifier, IStateChangeEventNotifier, ITraceEnterEventNotifier, ITraceExitEventNotifier, IIsDoomedChangeEventNotifier
     {
         event AseInfoMessageEventHandler InfoMessage;
         event StateChangeEventHandler StateChange;
         event TraceEnterEventHandler TraceEnter;
         event TraceExitEventHandler TraceExit;
+        event EventHandler IsDoomedChanged;
 
         void ClearAll();
     }

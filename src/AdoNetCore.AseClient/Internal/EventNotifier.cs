@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 using AdoNetCore.AseClient.Interface;
 
@@ -16,7 +17,7 @@ namespace AdoNetCore.AseClient.Internal
         /// Occurs when Adaptive Server ADO.NET Data Provider sends a warning or an informational message.
         /// </summary>
         /// <remarks>
-        /// The event handler receives an argument of type AseInfoMessageEventArgs containing data related to this event. 
+        /// The event handler receives an argument of type AseInfoMessageEventArgs containing data related to this event.
         /// The Errors and Message properties provide information specific to this event.
         /// </remarks>
         public event AseInfoMessageEventHandler InfoMessage
@@ -40,7 +41,7 @@ namespace AdoNetCore.AseClient.Internal
         /// Occurs when the state of the connection changes.
         /// </summary>
         /// <remarks>
-        /// The event handler receives an argument of StateChangeEventArgs with data related to this event. Two StateChangeEventArgs properties 
+        /// The event handler receives an argument of StateChangeEventArgs with data related to this event. Two StateChangeEventArgs properties
         /// provide information specific to this event: CurrentState and OriginalState.
         /// </remarks>
         public event StateChangeEventHandler StateChange
@@ -64,16 +65,16 @@ namespace AdoNetCore.AseClient.Internal
         /// Traces database activity within an application for debugging.
         /// </summary>
         /// <remarks>
-        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an 
-        /// instance of a connection. This allows different connections to be logged to different files. It can ignore 
-        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more 
-        /// than one event handler for a single connection object. This enables you to log the event to both a window 
+        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an
+        /// instance of a connection. This allows different connections to be logged to different files. It can ignore
+        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more
+        /// than one event handler for a single connection object. This enables you to log the event to both a window
         /// and a file at the same time.</para>
-        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities. 
-        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed. 
-        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are 
-        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the 
-        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores 
+        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities.
+        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed.
+        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are
+        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the
+        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores
         /// the TraceEnter and TraceExit events.</para>
         /// </remarks>
         public event TraceEnterEventHandler TraceEnter
@@ -97,16 +98,16 @@ namespace AdoNetCore.AseClient.Internal
         /// Traces database activity within an application for debugging.
         /// </summary>
         /// <remarks>
-        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an 
-        /// instance of a connection. This allows different connections to be logged to different files. It can ignore 
-        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more 
-        /// than one event handler for a single connection object. This enables you to log the event to both a window 
+        /// <para>Use TraceEnter and TraceExit events to hook up your own tracing method. This event is unique to an
+        /// instance of a connection. This allows different connections to be logged to different files. It can ignore
+        /// the event, or you can program it for other tracing. In addition, by using a .NET event, you can set up more
+        /// than one event handler for a single connection object. This enables you to log the event to both a window
         /// and a file at the same time.</para>
-        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities. 
-        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed. 
-        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are 
-        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the 
-        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores 
+        /// <para>Enable the ENABLETRACING connection property to trace Adaptive Server ADO.NET Data Provider activities.
+        /// It is disabled by default to allow for better performance during normal execution where tracing is not needed.
+        /// When this property is disabled, the TraceEnter and TraceExit events are not triggered, and tracing events are
+        /// not executed. You can configure ENABLETRACING in the connection string using these values: True – triggers the
+        /// TraceEnter and TraceExit events; and False – the default value; Adaptive Server ADO.NET Data Provider ignores
         /// the TraceEnter and TraceExit events.</para>
         /// </remarks>
         public event TraceExitEventHandler TraceExit
@@ -114,6 +115,8 @@ namespace AdoNetCore.AseClient.Internal
             add => TraceExitInternal += value;
             remove => TraceExitInternal -= value;
         }
+
+        public event EventHandler IsDoomedChanged;
 
         private event TraceExitEventHandler TraceExitInternal;
 
@@ -126,12 +129,15 @@ namespace AdoNetCore.AseClient.Internal
             traceExit?.Invoke(_aseConnection, source, method, returnValue);
         }
 
+        public void NotifyIsDoomedChanged() => IsDoomedChanged?.Invoke(this, EventArgs.Empty);
+
         public void ClearAll()
         {
             StateChangeInternal = null;
             InfoMessageInternal = null;
             TraceEnterInternal = null;
             TraceExitInternal = null;
+            IsDoomedChanged = null;
             _aseConnection = null;
         }
     }

@@ -370,7 +370,7 @@ namespace AdoNetCore.AseClient.Internal
 
                 // This tells the data reader to stop waiting for more results.
                 dataReader.CompleteAdding();
-                
+
                 AssertExecutionCompletion(doneHandler);
 
                 if (transaction != null && doneHandler.TransactionState == TranState.TDS_TRAN_ABORT)
@@ -594,6 +594,9 @@ namespace AdoNetCore.AseClient.Internal
                     SetState(InternalConnectionState.Broken);
                 }
                 _isDoomed = _isDoomed || value;
+
+                if(value && EventNotifier is IIsDoomedChangeEventNotifier notified)
+                    notified.NotifyIsDoomedChanged();
             }
         }
 
