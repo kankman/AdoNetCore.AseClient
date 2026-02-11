@@ -1,16 +1,16 @@
 <Project>
   <PropertyGroup>
     <TargetFrameworks>netcoreapp1.0;netcoreapp1.1;netcoreapp2.0;netcoreapp2.1;netcoreapp2.2;net46;netstandard2.0</TargetFrameworks>
-    <VersionPrefix>0.19.2</VersionPrefix>
-    <AssemblyVersion>0.11.0.0</AssemblyVersion>
+    <VersionPrefix>0.19.3</VersionPrefix>
+    <AssemblyVersion>0.11.0.1</AssemblyVersion>
     <FileVersion>$(VersionPrefix)</FileVersion>
     <Authors>dataaction</Authors>
     <PackageTags>Sybase ASE Adaptive SAP AseClient DbProvider</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageProjectUrl>https://github.com/DataAction/AdoNetCore.AseClient</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/kankman/AdoNetCore.AseClient</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageReleaseNotes>Refer to GitHub - https://github.com/DataAction/AdoNetCore.AseClient/releases/tag/0.19.2</PackageReleaseNotes>
-    <RepositoryUrl>https://github.com/DataAction/AdoNetCore.AseClient</RepositoryUrl>
+    <PackageReleaseNotes>Refer to GitHub - https://github.com/kankman/AdoNetCore.AseClient/releases/tag/0.19.2</PackageReleaseNotes>
+    <RepositoryUrl>https://github.com/kankman/AdoNetCore.AseClient</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == 'net46'">

@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\build\common.props"></Import>
-  <PropertyGroup>
-    <Description>.NET Core data provider for Sybase ASE</Description>
-  </PropertyGroup>
-<PropertyGroup>
-   <LangVersion>7</LangVersion>
-</PropertyGroup>
+    <Import Project="..\..\build\common.props"/>
+    <PropertyGroup>
+        <Description>.NET Core data provider for Sybase ASE</Description>
+        <LangVersion>7</LangVersion>
+        <IsPackable>true</IsPackable>
+        <PackageId>AdoNetCore.AseClient</PackageId>
+        <GeneratePackageOnBuild Condition="'$(Configuration)'=='Release'">true</GeneratePackageOnBuild>
+    </PropertyGroup>
 </Project>
